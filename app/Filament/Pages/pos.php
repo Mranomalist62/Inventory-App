@@ -19,14 +19,14 @@ class Pos extends Page
     protected static ?string $navigationGroup = 'Transaksi';
     protected static string $view = 'filament.pages.pos';
 
-    /** Cart line format: id, sku, name, price, qty, subtotal */
+    /** Cart line format: id, sku, name, price, qty, discount, subtotal, tax_amount */
     public array $cart = [];
 
     /** Ringkasan & pembayaran */
     public array $payment = [
         'subtotal' => 0,
-        'discount' => 0,
-        'tax' => 0,
+        'total_discount' => 0,
+        'total_tax' => 0,
         'grand_total' => 0,
         'paid' => 0,
         'change' => 0,
@@ -44,6 +44,11 @@ class Pos extends Page
     public string $debitLastFour = '';
     public bool $qrisConfirmed = false;
     public bool $debitConfirmed = false;
+
+    /** Modal untuk edit discount per produk */
+    public bool $showDiscountModal = false;
+    public int $editingCartIndex = 0;
+    public $editingDiscount = 0;
 
     /** Tampilkan menu hanya untuk owner|cashier */
     public static function shouldRegisterNavigation(): bool
@@ -63,7 +68,7 @@ class Pos extends Page
     /* ===================== SUGGESTIONS (SMART SEARCH) ===================== */
 
     /** * Implementasi Pencarian Mirip Google
-     * Menggunakan Tokenizing & Scoring 
+     * Menggunakan Tokenizing & Scoring
      */
     public function updatedSku($value): void
     {
@@ -166,6 +171,8 @@ class Pos extends Page
             'sku' => $p->sku,
             'name' => $p->name,
             'price' => (int) $p->sell_price,
+            'tax_rate' => (float) $p->tax_rate,
+            'discount' => (float) $p->discount, // Default discount dari produk
             'stock' => (int) $p->qty_on_hand,
             // Tambahan untuk tampilan UI yang lebih cantik (opsional)
             'price_fmt' => number_format($p->sell_price, 0, ',', '.'),
@@ -211,7 +218,7 @@ class Pos extends Page
             ->first();
 
         // Jika tidak ketemu exact, cek apakah ada di top suggestion?
-        // (Opsional: Jika user tekan enter tapi belum pilih suggestion, 
+        // (Opsional: Jika user tekan enter tapi belum pilih suggestion,
         // kita bisa ambil suggestion pertama secara otomatis)
         if (!$product && !empty($this->suggestions)) {
             $firstId = $this->suggestions[0]['id'];
@@ -236,7 +243,7 @@ class Pos extends Page
         foreach ($this->cart as &$line) {
             if ($line['id'] === $product->id) {
                 $line['qty'] += 1;
-                $line['subtotal'] = $line['qty'] * $line['price'];
+                $line = $this->calculateLineTotal($line);
                 $this->recalculate();
                 return;
             }
@@ -244,17 +251,54 @@ class Pos extends Page
         unset($line);
 
         // Tambah line baru
-        $this->cart[] = [
+        $newLine = [
             'id' => $product->id,
             'sku' => $product->sku,
             'name' => $product->name,
             'price' => (int) $product->sell_price,
-            'tax' => (int) $product->tax_rate,
+            'tax_rate' => (float) $product->tax_rate,
+            'discount' => (float) $product->discount, // Default dari produk
             'qty' => 1,
-            'subtotal' => (int) $product->sell_price,
         ];
 
+        $newLine = $this->calculateLineTotal($newLine);
+
+        $this->cart[] = $newLine;
         $this->recalculate();
+    }
+
+    /**
+     * Calculate line subtotal, discount amount, and tax (after discount)
+     */
+    protected function calculateLineTotal(array $line): array
+    {
+        $qty = (int) $line['qty'];
+        $price = (int) $line['price'];
+        $discountPercent = (float) $line['discount'];
+        $taxRate = (float) $line['tax_rate'];
+
+        // Calculate line subtotal without discount
+        $subtotal = $qty * $price;
+
+        // Calculate discount amount
+        $discountAmount = $subtotal * ($discountPercent / 100);
+
+        // Calculate taxable amount (after discount)
+        $taxableAmount = $subtotal - $discountAmount;
+
+        // Calculate tax on discounted amount
+        $taxAmount = $taxableAmount * ($taxRate / 100);
+
+        // Calculate final line total
+        $lineTotal = $taxableAmount + $taxAmount;
+
+        return array_merge($line, [
+            'subtotal' => (int) $subtotal,
+            'discount_amount' => (int) $discountAmount,
+            'taxable_amount' => (int) $taxableAmount,
+            'tax_amount' => (int) $taxAmount,
+            'line_total' => (int) $lineTotal,
+        ]);
     }
 
     public function incQty(int $index): void
@@ -262,7 +306,7 @@ class Pos extends Page
         if (!isset($this->cart[$index]))
             return;
         $this->cart[$index]['qty'] += 1;
-        $this->cart[$index]['subtotal'] = $this->cart[$index]['qty'] * $this->cart[$index]['price'];
+        $this->cart[$index] = $this->calculateLineTotal($this->cart[$index]);
         $this->recalculate();
     }
 
@@ -271,7 +315,7 @@ class Pos extends Page
         if (!isset($this->cart[$index]))
             return;
         $this->cart[$index]['qty'] = max(1, (int) $this->cart[$index]['qty'] - 1);
-        $this->cart[$index]['subtotal'] = $this->cart[$index]['qty'] * $this->cart[$index]['price'];
+        $this->cart[$index] = $this->calculateLineTotal($this->cart[$index]);
         $this->recalculate();
     }
 
@@ -281,8 +325,47 @@ class Pos extends Page
             return;
         $q = max(1, (int) $qty);
         $this->cart[$index]['qty'] = $q;
-        $this->cart[$index]['subtotal'] = $q * $this->cart[$index]['price'];
+        $this->cart[$index] = $this->calculateLineTotal($this->cart[$index]);
         $this->recalculate();
+    }
+
+    /** Open discount modal for specific cart item */
+    public function openDiscountModal(int $index): void
+    {
+        if (!isset($this->cart[$index]))
+            return;
+
+        $this->editingCartIndex = $index;
+        $this->editingDiscount = (float) $this->cart[$index]['discount'];
+        $this->showDiscountModal = true;
+    }
+
+    /** Apply discount from modal */
+    public function applyDiscount(): void
+    {
+        $index = $this->editingCartIndex;
+
+        if (!isset($this->cart[$index])) {
+            $this->closeDiscountModal();
+            return;
+        }
+
+        // Validate discount (0-100%)
+        $discount = min(100, max(0, (float) $this->editingDiscount));
+
+        $this->cart[$index]['discount'] = $discount;
+        $this->cart[$index] = $this->calculateLineTotal($this->cart[$index]);
+
+        $this->closeDiscountModal();
+        $this->recalculate();
+    }
+
+    /** Close discount modal */
+    public function closeDiscountModal(): void
+    {
+        $this->showDiscountModal = false;
+        $this->editingCartIndex = 0;
+        $this->editingDiscount = 0;
     }
 
     public function removeLine(int $index): void
@@ -298,8 +381,8 @@ class Pos extends Page
         $this->cart = [];
         $this->payment = [
             'subtotal' => 0,
-            'discount' => 0,
-            'tax' => 0,
+            'total_discount' => 0,
+            'total_tax' => 0,
             'grand_total' => 0,
             'paid' => 0,
             'change' => 0,
@@ -307,26 +390,34 @@ class Pos extends Page
         ];
         $this->sku = '';
         $this->suggestions = [];
+        $this->showDiscountModal = false;
     }
 
     /* ===================== PERHITUNGAN ===================== */
 
     public function recalculate(): void
     {
-        $subtotal = collect($this->cart)->sum(fn($i) => (int) $i['subtotal']);
-        $discount = 0;
-        $subtotal = $subtotal - ($subtotal * ($discount/100));
-        $tax = $subtotal * ($this->cart[0]['tax'] / 100);
+        // Reset payment totals
+        $subtotal = 0;
+        $totalDiscount = 0;
+        $totalTax = 0;
+        $grandTotal = 0;
 
-        $grand = max(0, $subtotal + $tax);
+        // Calculate totals from all cart lines
+        foreach ($this->cart as $line) {
+            $subtotal += (int) $line['subtotal'];
+            $totalDiscount += (int) $line['discount_amount'];
+            $totalTax += (int) $line['tax_amount'];
+            $grandTotal += (int) $line['line_total'];
+        }
 
         $this->payment['subtotal'] = $subtotal;
-        $this->payment['tax'] = $tax;
-        $this->payment['discount'] = $discount;
-        $this->payment['grand_total'] = $grand;
+        $this->payment['total_discount'] = $totalDiscount;
+        $this->payment['total_tax'] = $totalTax;
+        $this->payment['grand_total'] = $grandTotal;
 
         $paid = (int) $this->payment['paid'];
-        $this->payment['change'] = $paid > 0 ? max(0, $paid - $grand) : 0;
+        $this->payment['change'] = $paid > 0 ? max(0, $paid - $grandTotal) : 0;
     }
 
     /* ===================== SIMPAN TRANSAKSI ===================== */
@@ -351,8 +442,8 @@ class Pos extends Page
                     'cashier_id' => Auth::id(),
                     'customer_id' => null,
                     'subtotal' => (int) $this->payment['subtotal'],
-                    'tax' => (int) $this->payment['tax'],
-                    'discount' => (int) $this->payment['discount'],
+                    'tax' => (int) $this->payment['total_tax'],
+                    'discount' => (int) $this->payment['total_discount'],
                     'rounding' => 0,
                     'grand_total' => (int) $this->payment['grand_total'],
                     'paid' => (int) $this->payment['paid'],
@@ -364,16 +455,22 @@ class Pos extends Page
                 foreach ($this->cart as $item) {
                     $qty = (int) $item['qty'];
                     $price = (int) $item['price'];
-                    $tax = (int) $item['tax'];
+                    $discountPercent = (float) $item['discount'];
+                    $taxRate = (float) $item['tax_rate'];
+                    $discountAmount = (int) $item['discount_amount'];
+                    $taxAmount = (int) $item['tax_amount'];
 
                     SaleItem::create([
                         'sale_id' => $sale->id,
                         'product_id' => (int) $item['id'],
                         'qty' => $qty,
                         'unit_price' => $price,
-                        'discount' => 0,
-                        'tax' => $tax,
+                        'discount' => $discountPercent, // Store discount percentage
+                        'discount_amount' => $discountAmount, // Store discount amount
+                        'tax_rate' => $taxRate,
+                        'tax_amount' => $taxAmount,
                         'line_total' => $qty * $price,
+                        'final_total' => (int) $item['line_total'], // Total after discount + tax
                     ]);
 
                     // stok keluar + catat ledger

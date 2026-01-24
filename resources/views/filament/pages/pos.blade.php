@@ -6,8 +6,9 @@
         {{-- Search Bar --}}
         <div class="relative">
             <form wire:submit.prevent="addProduct" class="flex gap-3">
-                <div class="flex-1 relative">
-                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <div
+                    class="flex-1 relative flex items-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500 dark:focus-within:ring-primary-400">
+                    <div class="flex items-center justify-center w-12 px-3 pointer-events-none">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 dark:text-gray-500"
                             fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -16,7 +17,7 @@
                     </div>
                     <input type="text" wire:model.live.debounce.300ms="sku"
                         placeholder="Scan barcode atau ketik nama produk..." autocomplete="off" autofocus
-                        class="w-full pl-11 pr-4 py-3 text-base bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:focus:ring-primary-400 placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-white">
+                        class="flex-1 pl-2 pr-4 py-3 text-base bg-transparent border-none outline-none placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-white">
                 </div>
                 <button type="submit"
                     class="px-6 py-3 bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white font-medium rounded-lg transition-colors">
@@ -74,47 +75,79 @@
                     {{-- Cart Items --}}
                     <div class="divide-y divide-gray-100 dark:divide-gray-700 max-h-[400px] overflow-y-auto">
                         @forelse ($cart as $index => $item)
-                            <div class="px-4 py-3 flex items-center gap-4">
-                                {{-- Product Info --}}
-                                <div class="flex-1 min-w-0">
-                                    <div class="font-medium text-gray-900 dark:text-white truncate">{{ $item['name'] }}
-                                    </div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">
-                                        Rp {{ number_format($item['price'], 0, ',', '.') }}
-                                    </div>
-                                </div>
+                                            <div class="px-4 py-3 flex items-center gap-4">
+                                                {{-- Product Info --}}
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="font-medium text-gray-900 dark:text-white truncate">{{ $item['name'] }}
+                                                    </div>
+                                                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                                                        Rp {{ number_format($item['price'], 0, ',', '.') }}
+                                                    </div>
+                                                    {{-- DISCOUNT INFO --}}
+                                                    @if($item['discount'] > 0)
+                                                        <div class="text-xs mt-0.5">
+                                                            <span class="text-red-600 dark:text-red-400">Diskon: {{ $item['discount'] }}%</span>
+                                                            @if($item['tax_rate'] > 0)
+                                                                <span class="ml-2 text-blue-600 dark:text-blue-400">Pajak:
+                                                                    {{ $item['tax_rate'] }}%</span>
+                                                            @endif
+                                                        </div>
+                                                    @elseif($item['tax_rate'] > 0)
+                                                        <div class="text-xs mt-0.5 text-blue-600 dark:text-blue-400">
+                                                            Pajak: {{ $item['tax_rate'] }}%
+                                                        </div>
+                                                    @endif
+                                                </div>
 
-                                {{-- Quantity --}}
-                                <div class="flex items-center gap-1">
-                                    <button wire:click="decQty({{ $index }})"
-                                        class="w-8 h-8 flex items-center justify-center rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-bold">
-                                        −
-                                    </button>
-                                    <input type="number" wire:change="updateQty({{ $index }}, $event.target.value)"
-                                        value="{{ $item['qty'] }}" min="1"
-                                        class="w-14 h-8 text-center text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-                                    <button wire:click="incQty({{ $index }})"
-                                        class="w-8 h-8 flex items-center justify-center rounded bg-primary-600 dark:bg-primary-500 hover:bg-primary-700 dark:hover:bg-primary-600 text-white font-bold">
-                                        +
-                                    </button>
-                                </div>
+                                                {{-- Quantity --}}
+                                                <div class="flex items-center gap-1">
+                                                    <button wire:click="decQty({{ $index }})"
+                                                        class="w-8 h-8 flex items-center justify-center rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-bold">
+                                                        −
+                                                    </button>
+                                                    <input type="number" wire:change="updateQty({{ $index }}, $event.target.value)"
+                                                        value="{{ $item['qty'] }}" min="1"
+                                                        class="w-14 h-8 text-center text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                                                    <button wire:click="incQty({{ $index }})"
+                                                        class="w-8 h-8 flex items-center justify-center rounded bg-primary-600 dark:bg-primary-500 hover:bg-primary-700 dark:hover:bg-primary-600 text-white font-bold">
+                                                        +
+                                                    </button>
+                                                </div>
 
-                                {{-- Subtotal --}}
-                                <div class="w-28 text-right font-semibold text-gray-900 dark:text-white">
-                                    Rp {{ number_format($item['price'] * $item['qty'], 0, ',', '.') }}
-                                </div>
+                                                {{-- Discount Button --}}
+                                                <button wire:click="openDiscountModal({{ $index }})" class="ml-2 px-2 py-1 text-xs font-medium rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {{ $item['discount'] > 0
+                            ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700'
+                            : 'text-gray-600 dark:text-gray-400' }}">
+                                                    {{ $item['discount'] > 0 ? $item['discount'] . '%' : 'Diskon' }}
+                                                </button>
 
-                                {{-- Delete --}}
-                                <button wire:click="removeLine({{ $index }})"
-                                    class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
-                                        fill="currentColor">
-                                        <path fill-rule="evenodd"
-                                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                </button>
-                            </div>
+                                                {{-- Line Total Details --}}
+                                                <div class="w-32 text-right">
+                                                    <div class="font-semibold text-gray-900 dark:text-white">
+                                                        Rp {{ number_format($item['line_total'], 0, ',', '.') }}
+                                                    </div>
+                                                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                                                        @if($item['discount'] > 0)
+                                                            <div>-Rp {{ number_format($item['discount_amount'], 0, ',', '.') }}</div>
+                                                        @endif
+                                                        @if($item['tax_rate'] > 0)
+                                                            <div>+Rp {{ number_format($item['tax_amount'], 0, ',', '.') }}</div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+
+                                                {{-- Delete --}}
+                                                <button wire:click="removeLine({{ $index }})"
+                                                    class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
+                                                        fill="currentColor">
+                                                        <path fill-rule="evenodd"
+                                                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                            clip-rule="evenodd" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                         @empty
                             <div class="px-4 py-12 text-center">
                                 <svg xmlns="http://www.w3.org/2000/svg"
@@ -148,14 +181,14 @@
                                     {{ number_format($payment['subtotal'], 0, ',', '.') }}</span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-500 dark:text-gray-400">Pajak</span>
-                                <span class="text-gray-900 dark:text-white">Rp
-                                    {{ number_format($payment['tax'], 0, ',', '.') }}</span>
-                            </div>
-                            <div class="flex justify-between">
                                 <span class="text-gray-500 dark:text-gray-400">Diskon</span>
                                 <span class="text-red-600 dark:text-red-400">-Rp
-                                    {{ number_format($payment['discount'], 0, ',', '.') }}</span>
+                                    {{ number_format($payment['total_discount'], 0, ',', '.') }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500 dark:text-gray-400">Pajak</span>
+                                <span class="text-gray-900 dark:text-white">+Rp
+                                    {{ number_format($payment['total_tax'], 0, ',', '.') }}</span>
                             </div>
                             <div class="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                                 <span class="font-semibold text-gray-900 dark:text-white">Total</span>
@@ -355,6 +388,61 @@
                     <button wire:click="confirmDebitPayment"
                         class="flex-1 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">
                         Konfirmasi
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Discount Modal --}}
+    @if($showDiscountModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6">
+                <div class="text-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Atur Diskon</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        {{ $cart[$editingCartIndex]['name'] ?? '' }}
+                    </p>
+                </div>
+
+                <div class="mb-4">
+                    <div class="flex items-center justify-center gap-3">
+                        <button wire:click="$set('editingDiscount', 0)"
+                            class="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            0%
+                        </button>
+                        <button wire:click="$set('editingDiscount', 5)"
+                            class="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            5%
+                        </button>
+                        <button wire:click="$set('editingDiscount', 10)"
+                            class="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            10%
+                        </button>
+                        <button wire:click="$set('editingDiscount', 20)"
+                            class="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            20%
+                        </button>
+                    </div>
+
+                    <div class="mt-4">
+                        <input type="number" wire:model="editingDiscount" min="0" max="100" step="0.5"
+                            class="w-full mt-2 px-4 py-2 text-lg text-center border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            placeholder="0">
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
+                            Masukkan persentase diskon
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button wire:click="closeDiscountModal"
+                        class="flex-1 py-2 text-sm font-medium text-gray-200 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg">
+                        Batal
+                    </button>
+                    <button wire:click="applyDiscount"
+                        class="flex-1 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg">
+                        Terapkan
                     </button>
                 </div>
             </div>
