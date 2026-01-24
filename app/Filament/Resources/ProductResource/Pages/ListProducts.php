@@ -14,13 +14,6 @@ class ListProducts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('print_barcode')
-                ->label('Cetak Semua Barcode')
-                ->color('success')
-                ->action(function () {
-                    session()->forget('selected_product_ids');
-                    return redirect()->route('barcode.print');
-                }),
             Actions\CreateAction::make(),
         ];
     }
