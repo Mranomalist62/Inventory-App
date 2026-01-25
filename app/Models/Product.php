@@ -28,12 +28,38 @@ class Product extends Model
     {
         parent::boot();
 
-        // Generate EAN-13 barcode if not provided
         static::creating(function ($product) {
+            // Generate SKU if not provided
+            if (empty($product->sku)) {
+                $product->sku = self::generateSKU();
+            }
+
+            // Generate EAN-13 barcode if not provided
             if (empty($product->barcode)) {
                 $product->barcode = self::generateEAN13();
             }
         });
+
+        static::updating(function ($product) {
+            // Generate SKU if it's being set to empty/null
+            if (empty($product->sku)) {
+                $product->sku = self::generateSKU();
+            }
+        });
+    }
+
+    private static function generateSKU(): string
+    {
+        $prefix = 'PRD';
+        $year = date('y');
+        $month = date('m');
+
+        do {
+            $random = strtoupper(Str::random(4));
+            $sku = "{$prefix}{$year}{$month}{$random}";
+        } while (Product::where('sku', $sku)->exists());
+
+        return $sku;
     }
 
     /**

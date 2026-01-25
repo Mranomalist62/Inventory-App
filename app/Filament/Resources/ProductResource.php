@@ -41,21 +41,26 @@ class ProductResource extends Resource
                 Section::make('Informasi Produk')
                     ->schema([
                         TextInput::make('sku')
-                        ->label('SKU')
-                        ->helperText(function (?string $state): string {
-                            if (empty($state)) {
-                                return 'Kosongkan untuk auto-generate: ' . self::generateSKU();
-                            }
-                            return 'SKU unik produk';
-                        })
-                        ->rules([
-                            'nullable',
-                            'string',
-                            'max:50',
-                            'unique:products,sku,' . request()->route('record')
-                        ])
-                        ->dehydrated()
-                        ->maxLength(50),
+                            ->label('SKU')
+                            ->default(function () {
+                                // Generate and store SKU
+                                $generatedSKU = self::generateSKU();
+                                session(['generated_sku' => $generatedSKU]);
+                                return $generatedSKU;
+                            })
+                            ->helperText(function (?string $state): string {
+                                if (empty($state)) {
+                                    // Get SKU - generate new if not in session
+                                    $generatedSKU = session('generated_sku', function () {
+                                        $newSKU = self::generateSKU();
+                                        session(['generated_sku' => $newSKU]);
+                                        return $newSKU;
+                                    });
+                                    return 'Kosongkan untuk auto-generate: ' . $generatedSKU;
+                                }
+                                $generatedSKU = session('generated_sku');
+                                return 'SKU unik produk (auto-generate): ' . $generatedSKU;
+                            }),
 
                         TextInput::make('barcode')
                             ->label('Barcode')
