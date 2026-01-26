@@ -10,6 +10,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\On;
 
 class Pos extends Page
 {
@@ -40,6 +41,7 @@ class Pos extends Page
 
     /** Modal state untuk simulasi pembayaran */
     public bool $showQrisModal = false;
+    public bool $showBarcodeModal = false;
     public bool $showDebitModal = false;
     public string $debitLastFour = '';
     public bool $qrisConfirmed = false;
@@ -492,7 +494,6 @@ class Pos extends Page
 
             // Redirect ke print receipt (sesuaikan route name anda)
             redirect()->route('receipt.print', $sale);
-
         } catch (\Throwable $e) {
             report($e);
             Notification::make()->title('Gagal menyimpan transaksi')->danger()->send();
@@ -526,6 +527,33 @@ class Pos extends Page
             ->title('Pembayaran QRIS dikonfirmasi')
             ->success()
             ->send();
+    }
+
+    public function openBarcodeModal()
+    {
+        $this->showBarcodeModal = true;
+        $this->dispatch('barcode-modal-opened');
+    }
+
+    public function closeBarcodeModal()
+    {
+        $this->showBarcodeModal = false;
+        $this->dispatch('barcode-modal-closed');
+    }
+
+    #[On('barcode-scanned')]
+    public function handleBarcodeScanned($value)
+    {
+        $productId = Product::where('barcode', $value)->value('id');
+        if($productId){
+            $this->selectSuggestion($productId);
+        }else{
+            Notification::make()
+            ->title('Produk dengan barcode tersebut tidak tersedia.')
+            ->danger()
+            ->send();
+        }
+        $this->closeBarcodeModal();
     }
 
     /** Buka modal Debit */
