@@ -45,7 +45,7 @@ class BarcodeController extends Controller
         // Optional: Set custom margins if needed
         // Instead, use CSS in your Blade view
 
-        return $pdf->download("barcode-{$today}.pdf");
+        return $pdf->stream('barcode.pdf');
     }
 }
 
