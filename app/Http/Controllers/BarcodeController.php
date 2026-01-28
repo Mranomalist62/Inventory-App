@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
-use Spatie\LaravelPdf\Facades\Pdf;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 
 class BarcodeController extends Controller
@@ -12,7 +12,9 @@ class BarcodeController extends Controller
     {
         $ids = session('selected_product_ids');
         if ($ids) {
-            $products = Product::whereIn('id', $ids)->select('name', 'sell_price', 'barcode')->get();
+            $products = Product::whereIn('id', $ids)
+                ->select('name', 'sell_price', 'barcode')
+                ->get();
         } else {
             $products = Product::select('name', 'sell_price', 'barcode')->get();
         }
@@ -23,17 +25,65 @@ class BarcodeController extends Controller
     {
         $today = Carbon::today()->toDateString();
         $ids = session('selected_product_ids');
+
         if ($ids) {
-            $products = Product::whereIn('id', $ids)->select('name', 'sell_price', 'barcode')->get();
+            $products = Product::whereIn('id', $ids)
+                ->select('name', 'sell_price', 'barcode')
+                ->get();
         } else {
             $products = Product::select('name', 'sell_price', 'barcode')->get();
         }
-        return Pdf::view('pdf.barcode-produk', [
+
+        // DomPDF syntax
+        $pdf = Pdf::loadView('pdf.barcode-produk', [
             'products' => $products,
-        ])
-            ->format('A4')
-            ->portrait()
-            ->margins(10, 10, 10, 10) // mm
-            ->download("barcode-{$today}.pdf");
+        ]);
+
+        // Set paper and margins (in mm)
+        $pdf->setPaper('A4', 'portrait');
+
+        // Optional: Set custom margins if needed
+        // Instead, use CSS in your Blade view
+
+        return $pdf->download("barcode-{$today}.pdf");
     }
 }
+
+
+// namespace App\Http\Controllers;
+
+// use App\Models\Product;
+// use Spatie\LaravelPdf\Facades\Pdf;
+// use Carbon\Carbon;
+
+// class BarcodeController extends Controller
+// {
+//     public function preview()
+//     {
+//         $ids = session('selected_product_ids');
+//         if ($ids) {
+//             $products = Product::whereIn('id', $ids)->select('name', 'sell_price', 'barcode')->get();
+//         } else {
+//             $products = Product::select('name', 'sell_price', 'barcode')->get();
+//         }
+//         return view('pdf.barcode-produk', compact('products'));
+//     }
+
+//     public function print()
+//     {
+//         $today = Carbon::today()->toDateString();
+//         $ids = session('selected_product_ids');
+//         if ($ids) {
+//             $products = Product::whereIn('id', $ids)->select('name', 'sell_price', 'barcode')->get();
+//         } else {
+//             $products = Product::select('name', 'sell_price', 'barcode')->get();
+//         }
+//         return Pdf::view('pdf.barcode-produk', [
+//             'products' => $products,
+//         ])
+//             ->format('A4')
+//             ->portrait()
+//             ->margins(10, 10, 10, 10) // mm
+//             ->download("barcode-{$today}.pdf");
+//     }
+// }
